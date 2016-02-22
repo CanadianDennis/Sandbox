@@ -37,52 +37,93 @@ lambda = the cost-rate scale effect
 E_d = average demand for spare parts per unit time
 sigma_d = standard deviation of the demand for spare parts per unit time
 
+F = failure cumulative distribution function
+
 '''
 
 import random
 import math
 
 # Input parameters
-
-t_u    = 1
-tau    = 1
-tau_r  = 0.5
-C_d    = 6000
-C_p    = 1000
-C_c    = 5000
-h      = 100
-C_o    = 200
-C_h    = 50
-nu_1   = 10
-nu_2   = 70
+t_u = 1
+tau = 1
+tau_r = 0.5
+C_d = 6000
+C_p = 1000
+C_c = 5000
+h = 100
+C_o = 200
+C_h = 50
+nu_1 = 10
+nu_2 = 70
 beta_1 = 3
 beta_2 = 3
 p_list = (0, 0.1, 0.3)
 N_list = (1, 2, 5)
 
 # Initial values
-
 T = 10
 R = 5
 S = 1
 
 # Temporary, to be removed and replaced with loops
-
 p = 0.1
 N = 5
 
-# Simulation parameters
-
-C_opt = None
-t_f = [None] * N
-
+# Compute failure cumulative distribution function
 F = []
 for t in range(0, h+1, t_u):
     F_1 = 1 - math.exp(-1 * (t / nu_1) ** beta_1)
     F_2 = 1 - math.exp(-1 * (t / nu_2) ** beta_2)
     F.append(p * F_1 + (1 - p) * F_2)
 
-def getFailureTime(t):
+
+def get_failure_time():
+    for t in range(0, h+1, t_u):
+        i = round(t / t_u)
+        if F[i] > random.random():
+            return t
+    return h+1
+
+# Compute initial times for preventive maintenance (t_p) and failures (t_f)
+t_p = []
+t_f = []
+for i in range(0, N):
+    t_p.append(T)
+    t_f.append(get_failure_time())
+t_r = R
+
+S_0 = S
+S_t = S_0
+
+C = 0
+bo = [False] * N
+
+for t in range(0, h+1, t_u):
     for i in range(0, N):
-        if F > random.random() and t_f[i] is None:
-            t_f[i] = t
+        # Corrective maintenance is needed
+        if t_f[i] <= t:
+            # Corrective maintenance can be performed
+            if S_0 > 0:
+                S_0 -= 1
+                S_t -= 1
+                C += C_c + C_d * (t - t_f[i]) / t_u
+                t_f[i] = t + get_failure_time()
+                t_p[i] = t + T
+            # Corrective maintenance initially identified but cannot be performed
+            elif not bo[i]:
+                bo[i] = True
+                S_t -= 1
+        # Preventive maintenance is needed
+        elif t_p[i] <= t:
+            # Preventive maintenance can be performed
+            if S_0 > 0:
+                S_0 -= 1
+                S_t -= 1
+                C += C_p
+                t_f[i] = t + get_failure_time()
+                t_p[i] = t + T
+            # Preventive maintenance initially identified but cannot be performed
+            elif not bo[i]:
+                bo[i] = True
+                S_t -= 1
