@@ -62,30 +62,27 @@ N_list = (1, 2, 5)
 
 # Initial values
 
-T = 1000
-R = 500
+T = 10
+R = 5
 S = 1
 
-# Simulation parameters
-
-t = 0
-C_opt = 10 ** 12 # Improbably large initial value
+# Temporary, to be removed and replaced with loops
 
 p = 0.1
 N = 5
 
+# Simulation parameters
+
+C_opt = None
 t_f = [None] * N
 
-for t in range(1, h+1, t_u):
+F = []
+for t in range(0, h+1, t_u):
     F_1 = 1 - math.exp(-1 * (t / nu_1) ** beta_1)
     F_2 = 1 - math.exp(-1 * (t / nu_2) ** beta_2)
-    F = p * F_1 + (1 - p) * F_2
+    F.append(p * F_1 + (1 - p) * F_2)
 
+def getFailureTime(t):
     for i in range(0, N):
         if F > random.random() and t_f[i] is None:
             t_f[i] = t
-
-    t += t_u
-
-print(t_f)
-
