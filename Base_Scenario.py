@@ -39,3 +39,36 @@ sigma_d = standard deviation of the demand for spare parts per unit time
 
 '''
 
+import random
+
+# Input parameters
+
+t_u    = 1
+tau    = 1
+tau_r  = 0.5
+C_d    = 6000
+C_p    = 1000
+C_c    = 5000
+h      = 100
+C_o    = 200
+C_h    = 50
+nu_1   = 10
+nu_2   = 70
+beta_1 = 3
+beta_2 = 3
+p_list = (0, 0.1, 0.3)
+N_list = (1, 2, 5)
+
+# Initial values
+
+T = 1000
+R = 500
+S = 1
+
+# Simulation parameters
+
+t = 0
+C_opt = 10 ** 12 # Impossibly large initial value
+
+for p in p_list:
+    for N in N_list:
