@@ -40,6 +40,7 @@ sigma_d = standard deviation of the demand for spare parts per unit time
 '''
 
 import random
+import math
 
 # Input parameters
 
@@ -68,7 +69,23 @@ S = 1
 # Simulation parameters
 
 t = 0
-C_opt = 10 ** 12 # Impossibly large initial value
+C_opt = 10 ** 12 # Improbably large initial value
 
-for p in p_list:
-    for N in N_list:
+p = 0.1
+N = 5
+
+t_f = [None] * N
+
+for t in range(1, h+1, t_u):
+    F_1 = 1 - math.exp(-1 * (t / nu_1) ** beta_1)
+    F_2 = 1 - math.exp(-1 * (t / nu_2) ** beta_2)
+    F = p * F_1 + (1 - p) * F_2
+
+    for i in range(0, N):
+        if F > random.random() and t_f[i] is None:
+            t_f[i] = t
+
+    t += t_u
+
+print(t_f)
+
