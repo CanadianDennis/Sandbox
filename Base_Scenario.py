@@ -9,11 +9,11 @@ h = time horizon
 i = suffix i indicates asset number
 j = suffix j indicates j-th event
 N = number of assets, fleet size
-O = equals S-St, and is the number of spare parts ordered at the order review
+O = equals S - St, and is the number of spare parts ordered at the order review
 p = mixing parameter
 R = every time units the stock of spare parts is reviewed
 S = every time units spare parts are ordered to replenish the inventory from the current stock level up to a fixed level of stock units
-S_0 = stock on hand
+S_o = stock on hand
 S_t = current inventory position
 T = age of component when preventive replacement is performed
 T_i = initial age of asset at start of simulation
@@ -61,29 +61,28 @@ beta_2 = 3
 p_list = (0, 0.1, 0.3)
 N_list = (1, 2, 5)
 
-# Initial values
-T = 10
-R = 5
-S = 1
-
 # Temporary, to be removed and replaced with loops
-p = 0.1
 N = 5
+p = 0.3
+T = 51
+R = 1
+S = 1
 
 # Compute failure cumulative distribution function
 F = []
-for t in range(0, h+1, t_u):
+for t in range(0, h+t_u, t_u):
     F_1 = 1 - math.exp(-1 * (t / nu_1) ** beta_1)
     F_2 = 1 - math.exp(-1 * (t / nu_2) ** beta_2)
     F.append(p * F_1 + (1 - p) * F_2)
 
 
 def get_failure_time():
-    for t in range(0, h+1, t_u):
+    for t in range(0, h+t_u, t_u):
         i = round(t / t_u)
         if F[i] > random.random():
             return t
     return h+1
+
 
 # Compute initial times for preventive maintenance (t_p) and failures (t_f)
 t_p = []
@@ -93,37 +92,36 @@ for i in range(0, N):
     t_f.append(get_failure_time())
 t_r = R
 
-S_0 = S
-S_t = S_0
-
+S_o = S
 C = 0
-bo = [False] * N
 
-for t in range(0, h+1, t_u):
+for t in range(t_u, h+t_u, t_u):
+    # Incur holding cost for previous time period
+    C += C_h * S_o
+
+    # Incur order cost if placing an order
+    if t == t_r:
+        C += C_o
+
+    # Receive spares after lead time has expired
+    if t == (t_r + tau):
+        S_o = S
+        t_r += R
+
     for i in range(0, N):
-        # Corrective maintenance is needed
-        if t_f[i] <= t:
-            # Corrective maintenance can be performed
-            if S_0 > 0:
-                S_0 -= 1
-                S_t -= 1
-                C += C_c + C_d * (t - t_f[i]) / t_u
-                t_f[i] = t + get_failure_time()
-                t_p[i] = t + T
-            # Corrective maintenance initially identified but cannot be performed
-            elif not bo[i]:
-                bo[i] = True
-                S_t -= 1
-        # Preventive maintenance is needed
-        elif t_p[i] <= t:
-            # Preventive maintenance can be performed
-            if S_0 > 0:
-                S_0 -= 1
-                S_t -= 1
-                C += C_p
-                t_f[i] = t + get_failure_time()
-                t_p[i] = t + T
-            # Preventive maintenance initially identified but cannot be performed
-            elif not bo[i]:
-                bo[i] = True
-                S_t -= 1
+        # Corrective maintenance is needed and can be performed
+        if t >= t_f[i] and S_o > 0:
+            S_o -= 1
+            C += C_c + C_d * (t - t_f[i]) / t_u
+            t_f[i] = t + get_failure_time()
+            t_p[i] = t + T
+        # Preventive maintenance is needed and can be performed
+        elif t >= t_p[i] and S_o > 0:
+            S_o -= 1
+            S_t -= 1
+            C += C_p
+            t_f[i] = t + get_failure_time()
+            t_p[i] = t + T
+
+print("Result = ")
+print(C / (h / t_u))
