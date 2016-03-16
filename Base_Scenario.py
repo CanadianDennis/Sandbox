@@ -60,7 +60,7 @@ tau_r = 0.5
 C_d = 6000
 C_p = 1000
 C_c = 5000
-h = 2000
+h = 4000
 C_o = 200
 C_h = 50
 eta_1 = 10
@@ -70,7 +70,7 @@ beta_2 = 3
 p_list = (0, 0.1, 0.3)
 N_list = (1, 2, 5, 10, 15, 20, 30)
 
-num_iter = 10
+num_iter = 200
 
 time_arr = np.arange(0, h, t_u)
 time_start = 100
@@ -99,12 +99,12 @@ T = 29
 R = 1
 S = 1
 
-for i in range(0, num_iter):
+for iter_idx in range(0, num_iter):
     # Compute initial event times
     t_p = t_0 + np.ones(N) * T
     t_f = np.zeros(N)
-    for n in range(0, N):
-        t_f[n] = t_0[n] + get_failure_time(F, time_arr)
+    for asst_idx in range(0, N):
+        t_f[asst_idx] = t_0[asst_idx] + get_failure_time(F, time_arr)
     t_r = R
     t_r_tau = t_r + tau
 
@@ -119,8 +119,20 @@ for i in range(0, num_iter):
     for time_idx, t in np.ndenumerate(time_arr):
         debug_order = []
 
+        # Determine order to parse assets
+        asst_ord = []
+        # Outstanding corrective actions take precedence
+        for asst_idx in np.nditer(np.argsort(t_f)):
+            if t_f[asst_idx] <= t:
+                asst_ord.append(np.asscalar(asst_idx))
+        for asst_idx in np.nditer(np.argsort(t_p)):
+            if asst_idx not in asst_ord:
+                asst_ord.append(np.asscalar(asst_idx))
+
+        # asst_ord = range(0, N)
+
         # Incur holding cost for previous time period
-        cost_h[i, time_idx] += C_h * S_o
+        cost_h[iter_idx, time_idx] += C_h * S_o
 
         # Receive spares after lead time has expired
         if t >= t_r_tau and len(order_tracker) > 0:
@@ -130,53 +142,53 @@ for i in range(0, num_iter):
             t_r_tau = t_r + tau
             debug_order.append("Order Rx")
 
-        for n in range(0, N):
+        for asst_idx in asst_ord:
             # Corrective maintenance is needed
-            if t >= t_f[n] and t_p[n] != t_f[n]:
+            if t >= t_f[asst_idx] and t_p[asst_idx] != t_f[asst_idx]:
                 # Corrective maintenance can be performed
                 if S_o > 0:
                     S_o -= 1
-                    if not spare_ordered[n]:
+                    if not spare_ordered[asst_idx]:
                         S_t -= 1
-                    cost_c[i, time_idx] += C_c
-                    cost_d[i, time_idx] += C_d * (t - t_f[n] + tau_r) / t_u
-                    t_f[n] = t + get_failure_time(F, time_arr)
-                    t_p[n] = t + T
-                    spare_ordered[n] = False
-                    debug_action[n] = "CC"
+                    cost_c[iter_idx, time_idx] += C_c
+                    cost_d[iter_idx, time_idx] += C_d * (t - t_f[asst_idx] + tau_r) / t_u
+                    t_f[asst_idx] = t + get_failure_time(F, time_arr)
+                    t_p[asst_idx] = t + T
+                    spare_ordered[asst_idx] = False
+                    debug_action[asst_idx] = "CC"
                 # Corrective maintenance cannot be performed and inventory position has not been updated
-                elif not spare_ordered[n]:
+                elif not spare_ordered[asst_idx]:
                     S_t -= 1
-                    spare_ordered[n] = True
-                    debug_action[n] = "XC"
+                    spare_ordered[asst_idx] = True
+                    debug_action[asst_idx] = "XC"
                 else:
-                    debug_action[n] = "CX"
+                    debug_action[asst_idx] = "CX"
 
             # Preventive maintenance is needed
-            elif t >= t_p[n]:
+            elif t >= t_p[asst_idx]:
                 # Preventive maintenance can be performed
                 if S_o > 0:
                     S_o -= 1
-                    if not spare_ordered[n]:
+                    if not spare_ordered[asst_idx]:
                         S_t -= 1
-                    cost_p[i, time_idx] += C_p
-                    t_f[n] = t + get_failure_time(F, time_arr)
-                    t_p[n] = t + T
-                    spare_ordered[n] = False
-                    debug_action[n] = "PP"
+                    cost_p[iter_idx, time_idx] += C_p
+                    t_f[asst_idx] = t + get_failure_time(F, time_arr)
+                    t_p[asst_idx] = t + T
+                    spare_ordered[asst_idx] = False
+                    debug_action[asst_idx] = "PP"
                 # Preventive maintenance cannot be performed and inventory position has not been updated
-                elif not spare_ordered[n]:
+                elif not spare_ordered[asst_idx]:
                     S_t -= 1
-                    spare_ordered[n] = True
-                    debug_action[n] = "XP"
+                    spare_ordered[asst_idx] = True
+                    debug_action[asst_idx] = "XP"
                 else:
-                    debug_action[n] = "PX"
+                    debug_action[asst_idx] = "PX"
             else:
-                debug_action[n] = "NA"
+                debug_action[asst_idx] = "NA"
         # Incur order cost if placing an order
         if t >= t_r and S > S_t:
             order_tracker.append(S - S_t)
-            cost_o[i, time_idx] += C_o
+            cost_o[iter_idx, time_idx] += C_o
             t_r += R
             debug_order.append("Order Tx")
 
@@ -185,6 +197,8 @@ for i in range(0, num_iter):
         # print("debug_order =", debug_order, " ; order_tracker =", order_tracker)
         # print("t_p =", t_p)
         # print("t_f =", t_f)
+        # print("asst_ord =", asst_ord)
+        # print(" ")
 
 cost_p = cost_p[:, time_start:]
 cost_c = cost_c[:, time_start:]
