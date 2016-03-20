@@ -1,21 +1,27 @@
-""" Base scenario simulation used for validation against reference journal article
+"""
+Safety scenario simulation that forms the basis of our contribution
 
-Author: Dennis McLean
-Date: 2016-03-18
+Authors: Dennis McLean and Philip Leblanc
+Date: 2016-03-20
 Course: EMP 5103 C
 
 [1] A. Van Horenbeek, P. A. Scarf, C. A. V. Cavalcante and L. Pintelon, "The effect of maintenance quality on
 spare parts inventory for a fleet of assets," IEEE Trans. Rel., vol. 62, no. 3, pp. 596-607, Sep. 2013.
+
 """
 
 import numpy as np
+import datetime
 
 
 def get_failure_time(cfd, time_cfd):
-    """ Evaluate failure time based on a randomly generated number
+    """
+    Evaluate failure time based on a randomly generated number
+
     :param cfd: cumulative failure distribution (numpy array)
     :param time_cfd: time vector associated with cfd
     :return: random failure time based on cfd
+
     """
     rand = 1.0 - np.random.random()
     return time_cfd[np.searchsorted(cfd, rand) - 1]
@@ -28,7 +34,7 @@ tau_r = 0.5
 C_d = 6000
 C_p = 1000
 C_c = 5000
-h = 2500
+h = 4000
 C_o = 200
 C_h = 50
 eta_1 = 10
@@ -37,16 +43,18 @@ beta_1 = 3
 beta_2 = 3
 p_list = (0, 0.1, 0.3)
 N_list = (1, 2, 5, 10, 15, 20, 30)
-T_list = (26, 29, 30, 31, 36, 37, 38, 45, 46, 47, 48)
+T_list = range(20, 50, 1)
 R = 1
 S = 1
+unsafe_ratio = 0.4
+unsafe_premium = 5000
 
-num_iter = 25
+num_iter = 200
 
 time_arr = np.arange(0, h, t_u)
 time_start = 100
 
-print("N\tp\tT\tC\tC_p\tC_c\tC_i\tC_o\tC_d")
+print("N\tp\tT\tC\tC_p\tC_c\tC_i\tC_o\tC_d\tUnsafe\tSafe\tTime")
 
 for p in p_list:
 
@@ -71,6 +79,9 @@ for p in p_list:
             cost_o = np.zeros([num_iter, time_arr.size])
             cost_d = np.zeros([num_iter, time_arr.size])
 
+            unsafe_num = np.zeros(num_iter)
+            safe_num = np.zeros(num_iter)
+
             for iter_idx in range(0, num_iter):
                 # Compute initial event times
                 t_p = time_deploy + np.ones(N) * T
@@ -86,10 +97,7 @@ for p in p_list:
                 time_orders = []
                 orders = []
 
-                debug_action = ["N"] * N
-
                 for time_idx, t in np.ndenumerate(time_arr):
-                    debug_order = []
 
                     # Determine order to parse assets
                     asst_ord = []
@@ -98,10 +106,8 @@ for p in p_list:
                         if t_f[asst_idx] <= t:
                             asst_ord.append(np.asscalar(asst_idx))
                     for asst_idx in np.nditer(np.argsort(t_p)):
-                        if asst_idx not in asst_ord:
+                        if asst_idx not in asst_ord and t_p[asst_idx] <= t:
                             asst_ord.append(np.asscalar(asst_idx))
-
-                    # asst_ord = range(0, N)
 
                     # Incur holding cost for previous time period
                     cost_h[iter_idx, time_idx] += C_h * S_o
@@ -112,7 +118,6 @@ for p in p_list:
                         order_rx = orders.pop(0)
                         S_o += order_rx
                         S_t += order_rx
-                        debug_order.append("Order Rx")
 
                     for asst_idx in asst_ord:
                         # Corrective maintenance is needed
@@ -122,19 +127,21 @@ for p in p_list:
                                 S_o -= 1
                                 if not back_ordered[asst_idx]:
                                     S_t -= 1
-                                cost_c[iter_idx, time_idx] += C_c
+                                rand = np.random.random()
+                                if rand < unsafe_ratio:
+                                    unsafe_num[iter_idx] += 1
+                                    cost_c[iter_idx, time_idx] += C_c + unsafe_premium
+                                else:
+                                    safe_num[iter_idx] += 1
+                                    cost_c[iter_idx, time_idx] += C_c
                                 cost_d[iter_idx, time_idx] += C_d * (t - t_f[asst_idx] + tau_r) / t_u
                                 t_f[asst_idx] = t + get_failure_time(F, time_arr)
                                 t_p[asst_idx] = t + T
                                 back_ordered[asst_idx] = False
-                                debug_action[asst_idx] = "CC"
                             # Corrective maintenance cannot be performed and inventory position has not been updated
                             elif not back_ordered[asst_idx]:
                                 S_t -= 1
                                 back_ordered[asst_idx] = True
-                                debug_action[asst_idx] = "XC"
-                            else:
-                                debug_action[asst_idx] = "CX"
 
                         # Preventive maintenance is needed
                         elif t >= t_p[asst_idx]:
@@ -147,16 +154,11 @@ for p in p_list:
                                 t_f[asst_idx] = t + get_failure_time(F, time_arr)
                                 t_p[asst_idx] = t + T
                                 back_ordered[asst_idx] = False
-                                debug_action[asst_idx] = "PP"
                             # Preventive maintenance cannot be performed and inventory position has not been updated
                             elif not back_ordered[asst_idx]:
                                 S_t -= 1
                                 back_ordered[asst_idx] = True
-                                debug_action[asst_idx] = "XP"
-                            else:
-                                debug_action[asst_idx] = "PX"
-                        else:
-                            debug_action[asst_idx] = "NA"
+
                     # Check inventory levels
                     if t >= t_r:
                         t_r += R
@@ -165,15 +167,6 @@ for p in p_list:
                             time_orders.append(t + tau_r)
                             orders.append(S - S_t)
                             cost_o[iter_idx, time_idx] += C_o
-                            debug_order.append("Order Tx")
-
-                    # print("t =", t, " ; S_o =", S_o, " ; S_t =", S_t)
-                    # print("debug_action =", debug_action)
-                    # print("debug_order =", debug_order, " ; orders =", orders)
-                    # print("t_p =", t_p)
-                    # print("t_f =", t_f)
-                    # print("asst_ord =", asst_ord)
-                    # print(" ")
 
             cost_p = cost_p[:, time_start:]
             cost_c = cost_c[:, time_start:]
@@ -191,9 +184,12 @@ for p in p_list:
                 C_i_opt = np.average(cost_h)
                 C_o_opt = np.average(cost_o)
                 C_d_opt = np.average(cost_d)
+                unsafe_opt = np.average(unsafe_num)
+                safe_opt = np.average(safe_num)
 
-        print("%d\t%.1f\t%d\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f"%
-              (N, p, T_opt, C_opt, C_p_opt, C_c_opt, C_i_opt, C_o_opt, C_d_opt))
+        time_now = datetime.datetime.now()
+        print("%d\t%.1f\t%d\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t"%
+              (N, p, T_opt, C_opt, C_p_opt, C_c_opt, C_i_opt, C_o_opt, C_d_opt, unsafe_opt, safe_opt), time_now, sep='')
 
 # C_c = cost of corrective replacement
 # C_d = downtime or shortage cost per unit time
@@ -257,3 +253,10 @@ for p in p_list:
 # orders = list of currently placed orders
 # back_ordered = whether or not there is a spare on back order for each asset
 # order_rx = received order size
+# unsafe_ratio = portion of failures that are unsafe
+# unsafe_premium = additional cost associated with an unsafe failure
+# unsafe_num = number of unsafe failures
+# safe_num = number of safe failures
+# unsafe_opt = number of unsafe failures for the optimal policy
+# safe_opt = number of safe failures for the optimal policy
+# time_now = captures current real-world time to track progress of simulation execution
