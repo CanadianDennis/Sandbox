@@ -37,7 +37,7 @@ beta_1 = 3
 beta_2 = 3
 p_list = (0, 0.1, 0.3)
 N_list = (1, 2, 5, 10, 15, 20, 30)
-T_list =  (26, 29, 30, 31, 36, 37, 38, 45, 46, 47, 48)
+T_list = (26, 29, 30, 31, 36, 37, 38, 45, 46, 47, 48)
 R = 1
 S = 1
 
@@ -192,8 +192,8 @@ for p in p_list:
                 C_o_opt = np.average(cost_o)
                 C_d_opt = np.average(cost_d)
 
-        print("%d\t%.1f\t%d\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f"% (N, p, T_opt, C_opt, C_p_opt, C_c_opt, C_i_opt,
-                                                                     C_o_opt, C_d_opt))
+        print("%d\t%.1f\t%d\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f"%
+              (N, p, T_opt, C_opt, C_p_opt, C_c_opt, C_i_opt, C_o_opt, C_d_opt))
 
 # C_c = cost of corrective replacement
 # C_d = downtime or shortage cost per unit time
@@ -236,6 +236,7 @@ for p in p_list:
 #
 # N_list = list of asset numbers to loop through
 # p_list = list of weak component proportions to loop through
+# T_opt = preventive maintenance interval of optimal policy
 # F_1 = failure cumulative distribution function for weak components
 # F_2 = failure cumulative distribution function for standard components
 # F = combined failure cumulative distribution function
@@ -256,4 +257,3 @@ for p in p_list:
 # orders = list of currently placed orders
 # back_ordered = whether or not there is a spare on back order for each asset
 # order_rx = received order size
-
