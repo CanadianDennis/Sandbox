@@ -240,8 +240,9 @@ if __name__ == '__main__':
         proc.start()
 
 # SIMULATION VARIABLES
-# N_list = list of asset numbers to loop through
 # p_list = list of weak component proportions to loop through
+# N_list = list of asset numbers to loop through
+# T_list = list of preventive maintenance intervals to loop through
 # T_opt = preventive maintenance interval of optimal policy
 # F_1 = failure cumulative distribution function for weak components
 # F_2 = failure cumulative distribution function for standard components
