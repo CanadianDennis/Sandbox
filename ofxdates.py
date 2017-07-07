@@ -1,11 +1,14 @@
-from ofxparse import OfxParser, OfxPrinter
+import sys
 import csv
+from PyQt5.QtWidgets import QMainWindow, QApplication, QLabel, QtGui
+from PyQt5 import QtCore
 
-def main():
+def replace_dates(ofxpath, csvpath):
+    
+    outpath = ofxpath[:-4] + '_fixed.ofx'
     
     csvdata = []
-    
-    with open('statement.csv') as csvfile:
+    with open(csvpath) as csvfile:
         fieldnames = ['item_no', 'card_no', 'trans_date', 'post_date', 'amount', 'description']
         csvreader = csv.DictReader(csvfile, fieldnames=fieldnames)
         for csvtrans in csvreader:
@@ -15,9 +18,8 @@ def main():
     del(csvdata[0]) # Column headings
     
     i = 0
-    
-    with open('statement.ofx') as infile:
-        with open('output.ofx', 'w') as outfile:
+    with open(ofxpath) as infile:
+        with open(outpath, 'w') as outfile:
             for ofxline in infile:
                 if ofxline[:10] == '<DTPOSTED>':
                     ofxline = '<DTPOSTED>' + csvdata[i]['trans_date'] + ofxline[18:]
@@ -37,7 +39,82 @@ def main():
                         print(csvpayee)
                         print(ofxpayee)
                 outfile.write(ofxline)
-                
+
+
+class MainWindow(QMainWindow):
+  
+    def __init__(self):
+        super().__init__()
+
+        self.setFixedSize(500,300)
+        self.setWindowTitle('OFX Date Fix')
+        
+        self.setAcceptDrops(True)
+
+        self.label = QLabel(self)
+        self.label.setStyleSheet("""
+                font: 14pt Arial;
+                background-color: white;
+            """)
+        self.label.setText('Drag & drop OFX file here')
+        self.label.setAlignment(QtCore.Qt.AlignTop | QtCore.Qt.AlignLeft)                
+        
+        self.scrollArea = QtGui.QScrollArea(self)
+        self.scrollArea.setGeometry(QtCore.QRect(10, 10, 201, 121))
+        self.scrollArea.setWidgetResizable(True)
+        
+        self.label = QtGui.QLabel(self.scrollAreaWidgetContents)
+        self.label.setGeometry(QtCore.QRect(15, 10, 151, 101))
+        self.label.setWordWrap(True)
+        self.scrollArea.setWidget(self.scrollAreaWidgetContents)
+
+        self.scrollArea.setWidget(self.label)
+        self.setCentralWidget(self.scrollArea)
+
+        self.show()
+
+
+    def dragEnterEvent(self, e):
+        
+        e.accept()
+        
+        if e.mimeData().hasUrls:
+            urls = e.mimeData().urls()
+            if len(urls) == 1:
+                filepath = str(urls[0].toLocalFile())
+                if filepath[-4:] == '.ofx':
+                    self.label.setText('Drop!')
+                else:
+                    self.label.setText('Not an OFX file')
+            else:
+                self.label.setText('Not a single file')
+        else:
+            self.label.setText('Not a file.')
+        
+    
+    def dragLeaveEvent(self, e):
+        
+        self.label.setText('Drag & drop OFX file here')
+
+
+    def dropEvent(self, e):
+        
+        e.accept
+        
+        if e.mimeData().hasUrls:
+            urls = e.mimeData().urls()
+            if len(urls) == 1:
+                filepath = str(urls[0].toLocalFile())
+                if filepath[-4:] == '.ofx':
+                    replace_dates(filepath)
+        
+
 if __name__ == '__main__':
-    main()
+  
+    app = False
+    app = QApplication(sys.argv)
+    
+    win = MainWindow()
+    
+    app.exec()
     
