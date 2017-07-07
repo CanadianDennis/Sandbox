@@ -1,6 +1,6 @@
 import sys
 import csv
-from PyQt5.QtWidgets import QMainWindow, QApplication, QLabel, QtGui
+from PyQt5.QtWidgets import QMainWindow, QApplication, QLabel, QScrollArea
 from PyQt5 import QtCore
 
 def replace_dates(ofxpath, csvpath):
@@ -53,22 +53,17 @@ class MainWindow(QMainWindow):
 
         self.label = QLabel(self)
         self.label.setStyleSheet("""
-                font: 14pt Arial;
+                font: 10pt Courier;
                 background-color: white;
             """)
         self.label.setText('Drag & drop OFX file here')
         self.label.setAlignment(QtCore.Qt.AlignTop | QtCore.Qt.AlignLeft)                
         
-        self.scrollArea = QtGui.QScrollArea(self)
-        self.scrollArea.setGeometry(QtCore.QRect(10, 10, 201, 121))
+        self.scrollArea = QScrollArea(self)
         self.scrollArea.setWidgetResizable(True)
-        
-        self.label = QtGui.QLabel(self.scrollAreaWidgetContents)
-        self.label.setGeometry(QtCore.QRect(15, 10, 151, 101))
-        self.label.setWordWrap(True)
-        self.scrollArea.setWidget(self.scrollAreaWidgetContents)
-
+        self.scrollArea.verticalScrollBar().rangeChanged.connect(self.resizeScroll)
         self.scrollArea.setWidget(self.label)
+        
         self.setCentralWidget(self.scrollArea)
 
         self.show()
@@ -83,18 +78,18 @@ class MainWindow(QMainWindow):
             if len(urls) == 1:
                 filepath = str(urls[0].toLocalFile())
                 if filepath[-4:] == '.ofx':
-                    self.label.setText('Drop!')
+                    self.appendText('Drop!')
                 else:
-                    self.label.setText('Not an OFX file')
+                    self.appendText('Not a OFX/CSV pair')
             else:
-                self.label.setText('Not a single file')
+                self.appendText('Not a pair of files')
         else:
-            self.label.setText('Not a file.')
+            self.appendText('Not a file')
         
     
     def dragLeaveEvent(self, e):
         
-        self.label.setText('Drag & drop OFX file here')
+        self.appendText('Drag & drop OFX file here')
 
 
     def dropEvent(self, e):
@@ -107,7 +102,15 @@ class MainWindow(QMainWindow):
                 filepath = str(urls[0].toLocalFile())
                 if filepath[-4:] == '.ofx':
                     replace_dates(filepath)
+    
+    
+    def appendText(self, text):
+        self.label.setText(self.label.text() + '\n' + text)
         
+    
+    def resizeScroll(self, mini, maxi):
+        self.scrollArea.verticalScrollBar().setValue(maxi)
+
 
 if __name__ == '__main__':
   
