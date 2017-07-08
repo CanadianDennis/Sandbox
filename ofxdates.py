@@ -5,6 +5,8 @@ from PyQt5 import QtCore
 
 def replace_dates(ofxpath, csvpath):
     
+    output = '----- Begin Processing -----\n'
+    
     outpath = ofxpath[:-4] + '_fixed.ofx'
     
     csvdata = []
@@ -25,27 +27,34 @@ def replace_dates(ofxpath, csvpath):
                     ofxline = '<DTPOSTED>' + csvdata[i]['trans_date'] + ofxline[18:]
                     i = i + 1
                 elif ofxline[:8] == '<TRNAMT>':
-                    csvamount = -1.0 * float(csvdata[i-1]['amount'])
                     ofxamount = float(ofxline[8:])
-                    if csvamount != ofxamount:
-                        print('Warning: Transaction #%d amounts do not match:'% (i))
-                        print(csvamount)
-                        print(ofxamount)
+                    csvamount = -1.0 * float(csvdata[i-1]['amount'])
+                    if ofxamount != csvamount:
+                        output = output + 'Warning: Transaction #' + str(i) + ' amounts do not match:\n'
+                        output = output + 'OFX: ' + ofxamount + '\n'
+                        output = output + 'CSV: ' + csvamount + '\n'
                 elif ofxline[:6] == '<NAME>':
-                    csvpayee = csvdata[i-1]['description']
                     ofxpayee = ofxline[6:-1]
-                    if csvpayee[:len(ofxpayee)] != ofxpayee:
-                        print('Warning: Transaction #%d payees do not match:'% (i))
-                        print(csvpayee)
-                        print(ofxpayee)
+                    ofxpayee = ofxpayee.replace('&amp;', '&')
+                    csvpayee = csvdata[i-1]['description']
+                    if ofxpayee != csvpayee[:len(ofxpayee)]:
+                        output = output + 'Warning: Transaction #' + str(i) + ' payees do not match:\n'
+                        output = output + 'OFX: ' + ofxpayee + '\n'
+                        output = output + 'CSV: ' + csvpayee + '\n'
                 outfile.write(ofxline)
+    
+    output = output + 'Output: ' + outpath + '\n'
+    output = output + '-----  End Processing  -----'
+    
+    return output
 
 
 class MainWindow(QMainWindow):
   
     def __init__(self):
         super().__init__()
-
+        
+        self.setGeometry(100, 100, 500,300)
         self.setFixedSize(500,300)
         self.setWindowTitle('OFX Date Fix')
         
@@ -56,7 +65,7 @@ class MainWindow(QMainWindow):
                 font: 10pt Courier;
                 background-color: white;
             """)
-        self.label.setText('Drag & drop OFX file here')
+        self.label.setText('Drag & drop OFX/CSV pair here')
         self.label.setAlignment(QtCore.Qt.AlignTop | QtCore.Qt.AlignLeft)                
         
         self.scrollArea = QScrollArea(self)
@@ -73,11 +82,15 @@ class MainWindow(QMainWindow):
         
         e.accept()
         
+        urls = []
+        
         if e.mimeData().hasUrls:
-            urls = e.mimeData().urls()
-            if len(urls) == 1:
-                filepath = str(urls[0].toLocalFile())
-                if filepath[-4:] == '.ofx':
+            for url in e.mimeData().urls():
+                urls.append(str(url.toLocalFile()))
+            if len(urls) == 2:
+                if urls[0][-4:] == '.ofx' and urls[1][-4:] == '.csv':
+                    self.appendText('Drop!')
+                elif urls[0][-4:] == '.csv' and urls[1][-4:] == '.ofx':
                     self.appendText('Drop!')
                 else:
                     self.appendText('Not a OFX/CSV pair')
@@ -89,25 +102,31 @@ class MainWindow(QMainWindow):
     
     def dragLeaveEvent(self, e):
         
-        self.appendText('Drag & drop OFX file here')
+        self.appendText('Drag & drop OFX/CSV pair here')
 
 
     def dropEvent(self, e):
         
         e.accept
         
+        urls = []
+            
         if e.mimeData().hasUrls:
-            urls = e.mimeData().urls()
-            if len(urls) == 1:
-                filepath = str(urls[0].toLocalFile())
-                if filepath[-4:] == '.ofx':
-                    replace_dates(filepath)
-    
-    
+            for url in e.mimeData().urls():
+                urls.append(str(url.toLocalFile()))
+            if len(urls) == 2:
+                if urls[0][-4:] == '.ofx' and urls[1][-4:] == '.csv':
+                    output = replace_dates(urls[0], urls[1])
+                    self.appendText(output)
+                elif urls[0][-4:] == '.csv' and urls[1][-4:] == '.ofx':
+                    output = replace_dates(urls[1], urls[0])
+                    self.appendText(output)
+
+
     def appendText(self, text):
         self.label.setText(self.label.text() + '\n' + text)
-        
-    
+
+
     def resizeScroll(self, mini, maxi):
         self.scrollArea.verticalScrollBar().setValue(maxi)
 
